@@ -253,48 +253,75 @@ fn connect_corners(
     new_half_edge_a
 }
 
+// Helper for `tree_to_quadrangulation`. Used to connect all corners with label k+1
+// to the following corner with label k
+fn connect_corners_from_all(
+    map: &mut PlanarMap,
+    dst: u64,
+    srcs: &Vec<u64>,
+    inverse_rotation_system: &mut Permutation,
+) {
+    let first_new_half_edge = match srcs.first() {
+        None => return,
+        Some(&src) => connect_corners(map, dst, src, inverse_rotation_system),
+    };
+    for &predecessor in srcs[1..].iter() {
+        connect_corners(map, dst, predecessor, inverse_rotation_system);
+    }
+    inverse_rotation_system.data[dst as usize] = first_new_half_edge;
+}
+
 /// Runs the CVS bijection on `tree`, using `labels`. Returns a quadrangulation.
-pub fn tree_to_quadrangulation(tree: &PlanarMap, labels: &Vec<u64>) -> PlanarMap {
+pub fn tree_to_quadrangulation(tree: &mut PlanarMap, labels: &Vec<u64>) {
     assert_eq!(labels.len() as u64, tree.num_half_edges());
-    let mut result = tree.clone();
-    let new_root = result.add_half_edge();
-    let mut inverse_rotation_system = result.rotation_system().inverse(); // Used to calculate corners
+    let new_root = tree.add_half_edge();
+    let mut inverse_rotation_system = tree.rotation_system().inverse(); // Used to calculate corners
     let mut label_stacks: Vec<Vec<u64>> =
         vec![Vec::new(); (tree.num_half_edges() / 2 + 3) as usize]; // Record of previously seen half-edges and their labels
-    for i in 0..tree.num_half_edges() {
+    for i in 0..tree.num_half_edges() - 1 {
         let label = labels[i as usize] as usize;
         label_stacks[label].push(i);
-        let mut first_new_half_edge = None;
-        for &predecessor in label_stacks[label + 1].iter() {
-            // Add an edge towards the predecessor
-            let new_half_edge =
-                connect_corners(&mut result, i, predecessor, &inverse_rotation_system);
-            if predecessor == *label_stacks[label + 1].first().unwrap() {
-                first_new_half_edge = Some(new_half_edge);
-            }
-        }
-        if let Some(x) = first_new_half_edge {
-            inverse_rotation_system.data[i as usize] = x;
-        }
+        connect_corners_from_all(
+            tree,
+            i,
+            &label_stacks[label + 1],
+            &mut inverse_rotation_system,
+        );
         label_stacks[label + 1].clear();
     }
-    let mut first_new_half_edge = None;
-    // The initial half-edge may also be the successor of a half-edge
-    for &predecessor in label_stacks[2].iter() {
-        let new_half_edge = connect_corners(&mut result, 0, predecessor, &inverse_rotation_system);
-        if predecessor == *label_stacks[2].first().unwrap() {
-            first_new_half_edge = Some(new_half_edge);
-        }
-    }
-    if let Some(x) = first_new_half_edge {
-        inverse_rotation_system.data[0] = x;
-    }
-    //inverse_rotation_system = result.rotation_system().inverse();
+    connect_corners_from_all(tree, 0, &label_stacks[2], &mut inverse_rotation_system);
     // Handle all vertices with label 1
-    for &i in label_stacks[1].iter() {
-        connect_corners(&mut result, new_root, i, &inverse_rotation_system);
-    } // Delete old edges from `tree`
-    result.rotation_system_mut().drop_prefix(new_root + 1);
-    result.edge_bindings_mut().drop_prefix(new_root + 1);
-    result
+    connect_corners_from_all(
+        tree,
+        new_root,
+        &label_stacks[1],
+        &mut inverse_rotation_system,
+    );
+    // Delete old edges from `tree`
+    tree.rotation_system_mut().drop_prefix(new_root + 1);
+    tree.edge_bindings_mut().drop_prefix(new_root + 1);
+}
+
+pub fn quadrangulation_to_triangulation(quad: &mut PlanarMap) -> &mut PlanarMap {
+    let mut inverse_rotation_system = quad.rotation_system().inverse();
+    for face in quad.faces() {
+        let mut repeated = None;
+        for i in 0..face.len() {
+            for j in 0..face.len() {
+                if i != j && face[i] == face[j] {
+                    repeated = Some(i);
+                }
+            }
+        }
+        match repeated {
+            None => connect_corners(quad, face[0], face[2], &mut inverse_rotation_system),
+            Some(i) => connect_corners(
+                quad,
+                face[(i - 1) % face.len()],
+                face[(i + 1) % face.len()],
+                &mut inverse_rotation_system,
+            ),
+        };
+    }
+    quad
 }
