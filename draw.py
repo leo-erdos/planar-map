@@ -84,4 +84,4 @@ def plot_quad_wireframe(points, edges_path, faces, thickness=8):
 mesh = meshio.read(sys.argv[1])
 rest_positions = np.asarray(mesh.points, dtype=np.float64)
 faces = mesh.cells_dict["triangle"]
-plot_quad_wireframe(rest_positions, sys.argv[2], faces)
+plot_quad_wireframe(rest_positions, sys.argv[1] + ".edges", faces)

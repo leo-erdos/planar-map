@@ -1,0 +1,7 @@
+ipctk
+meshio
+plotly
+numpy
+networkx
+scipy
+matplotlib

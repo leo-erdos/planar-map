@@ -15,10 +15,6 @@ fn main() {
     let mut map = PlanarMap::random_tree(faces, &mut rng);
     let labels = labels(&map, &mut rng);
     tree_to_quadrangulation(&mut map, &labels);
-    let face_walk = map.rotation_system().compose(map.edge_bindings());
-    for face in face_walk.cycles() {
-        assert_eq!(face.count(), 4);
-    }
     let quad_dst = distance_matrix(&map);
     let n_vertices_no_augment: u64 = map.rotation_system().cycles().count() as u64;
     let diag_start = map.num_half_edges();
@@ -31,7 +27,6 @@ fn main() {
         n_vertices_no_augment,
         n_half_edges_no_augment,
     );
-    let n_vertices = map.rotation_system().cycles().count() as u64;
     let colors = schnyder_woods(&map);
     let embedding = schnyder_embedding(&map, &colors);
     let vertex_map = map.rotation_system().cycle_map();
@@ -48,19 +43,12 @@ fn main() {
                 as usize],
         ]),
     );
-    println!(
-        "Faces {}",
-        map.rotation_system()
-            .compose(map.edge_bindings())
-            .cycles()
-            .count()
-    );
-    println!("Vertices {}", map.rotation_system().cycles().count());
-    println!("Edges {}", map.edges().count());
-    save_obj(&map, &initial_embedding, "small.obj");
-    let mut dist_file = File::create("distances").unwrap();
+    save_obj(&map, &initial_embedding, &args[2]);
+    let name = args[2].clone() + ".dist";
+    let mut dist_file = File::create(name).unwrap();
     for d in aug_dst {
         write!(dist_file, "{d}\n").unwrap();
     }
-    save_quad_obj(&map, diag_start, &true_edges, "quad_edges.obj");
+    let name = args[2].clone() + ".edges";
+    save_quad_obj(&map, diag_start, &true_edges, &name);
 }

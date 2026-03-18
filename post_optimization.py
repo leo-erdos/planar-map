@@ -167,7 +167,7 @@ def read_distance_matrix(path):
         distances = np.asarray(distances, dtype=np.float32)
         return distances
 
-distances = read_distance_matrix(sys.argv[2])
+distances = read_distance_matrix(sys.argv[1] + ".dist")
 true_dist = distances.copy()
 mesh = meshio.read(sys.argv[1])
 rest_positions = np.asarray(mesh.points, dtype=np.float64)
@@ -196,9 +196,9 @@ def iteration(vertices, collision_mesh, dhat, stiffness, initial_step_size, dist
 
 v = vertices
 spring_energies = []
-for i in range(int(sys.argv[3])):
+for i in range(int(sys.argv[2])):
     if i % 50 == 0:
         print("=========== " + str(i) + " ===========")
     v = iteration(v, collision_mesh, 1e-3, 1, 1e-3, distances, spring_energies, spring_weight=2)
 mesh.points = v
-meshio.write(sys.argv[4], mesh)
+meshio.write(sys.argv[3], mesh)
